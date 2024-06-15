@@ -18,7 +18,17 @@ int main() {
     int someLocalState = 0;
     func myFunc(someLocalState);
     std::thread myThread(myFunc);
-    myThread.detach();
+    // myThread.detach();
+
+    // Good practice: always join threads even if there is error
+    try {
+        myThread.get_id();
+        // Try to do something with thread
+    } catch(...) {
+        myThread.join();
+        throw;
+    }
+    myThread.join();
 
     return EXIT_SUCCESS;
 }
