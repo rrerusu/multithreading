@@ -1,6 +1,18 @@
 #include <iostream>
 #include <thread>
 
+class threadGuard {
+    std::thread & myThread;
+    public:
+        explicit threadGuard(std::thread & myThread_) : myThread(myThread_) {}
+        ~threadGuard() {
+            if(myThread.joinable())
+                myThread.join();
+        }
+        threadGuard(threadGuard const &) = delete;
+        threadGuard & operator=(threadGuard const &) = delete;
+};
+
 struct func {
     int & i;
     func(int & _i) : i(_i) {}
@@ -18,17 +30,10 @@ int main() {
     int someLocalState = 0;
     func myFunc(someLocalState);
     std::thread myThread(myFunc);
-    // myThread.detach();
+    threadGuard myThreadGuard(myThread);
 
-    // Good practice: always join threads even if there is error
-    try {
-        myThread.get_id();
-        // Try to do something with thread
-    } catch(...) {
-        myThread.join();
-        throw;
-    }
-    myThread.join();
+    // do something in thread
+    myThread.get_id();
 
     return EXIT_SUCCESS;
 }
