@@ -1,16 +1,29 @@
 #include <iostream>
 #include <thread>
 
-class threadGuard {
-    std::thread & myThread;
+// class threadGuard {
+//     std::thread & myThread;
+//     public:
+//         explicit threadGuard(std::thread & myThread_) : myThread(myThread_) {}
+//         ~threadGuard() {
+//             if(myThread.joinable())
+//                 myThread.join();
+//         }
+//         threadGuard(threadGuard const &) = delete;
+//         threadGuard & operator=(threadGuard const &) = delete;
+// };
+class ScopedThread {
+    std::thread myThread;
     public:
-        explicit threadGuard(std::thread & myThread_) : myThread(myThread_) {}
-        ~threadGuard() {
-            if(myThread.joinable())
-                myThread.join();
+        explicit ScopedThread(std::thread myThread_) : myThread(std::move(myThread_)){
+            if(!myThread.joinable())
+                throw std::logic_error("No thread");
         }
-        threadGuard(threadGuard const &) = delete;
-        threadGuard & operator=(threadGuard const &) = delete;
+        ~ScopedThread() {
+            myThread.join();
+        }
+        ScopedThread(ScopedThread const &) = delete;
+        ScopedThread & operator=(ScopedThread const &) = delete;
 };
 
 struct func {
@@ -28,12 +41,10 @@ struct func {
 
 int main() {
     int someLocalState = 0;
-    func myFunc(someLocalState);
-    std::thread myThread(myFunc);
-    threadGuard myThreadGuard(myThread);
+    // func myFunc(someLocalState);
+    ScopedThread myScopedThread(std::thread(func(someLocalState)));
 
     // do something in thread
-    myThread.get_id();
 
     return EXIT_SUCCESS;
 }
