@@ -9,22 +9,39 @@ struct someResource {
 };
 
 std::shared_ptr<someResource> resourcePtr;
-std::mutex resourceMutex;
+// std::mutex resourceMutex;
+std::once_flag resourceFlag;
+
+
+// void foo() {
+//     std::unique_lock<std::mutex> resourceLock(resourceMutex);
+//     if(!resourcePtr)
+//         resourcePtr.reset(new someResource);
+//     resourceLock.unlock();
+//     resourcePtr->doSomething();
+// }
+
+// // Double cbecked locking causes undefined behavior - nasty data race condition
+// void doubleCheckedLocking() {
+//     if(!resourcePtr) {
+//         std::lock_guard<std::mutex> resourceLock(resourceMutex);
+//         if(!resourcePtr)
+//             resourcePtr.reset(new someResource);
+//     }
+//     resourcePtr->doSomething();
+// }
+
+void initResource() {
+    resourcePtr.reset(new someResource);
+}
 
 void foo() {
-    std::unique_lock<std::mutex> resourceLock(resourceMutex);
-    if(!resourcePtr)
-        resourcePtr.reset(new someResource);
-    resourceLock.unlock();
+    std::call_once(resourceFlag, initResource);
     resourcePtr->doSomething();
 }
 
-// Double cbecked locking causes undefined behavior - nasty data race condition
-void doubleCheckedLocking() {
-    if(!resourcePtr) {
-        std::lock_guard<std::mutex> resourceLock(resourceMutex);
-        if(!resourcePtr)
-            resourcePtr.reset(new someResource);
-    }
-    resourcePtr->doSomething();
+int main() {
+    foo();
+
+    return EXIT_SUCCESS;
 }
