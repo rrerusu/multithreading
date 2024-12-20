@@ -68,7 +68,7 @@ bool ThreadSafeQueue<someType>::tryPop(someType & value) {
 template<typename someType>
 std::shared_ptr<someType> ThreadSafeQueue<someType>::tryPop() {
     std::lock_guard<std::mutex> lk(dataMutex);
-    if(!dataQueue.empty())
+    if(dataQueue.empty())
         return std::shared_ptr<someType>();
     std::shared_ptr<someType> res(std::make_shared<someType>(dataQueue.front()));
     dataQueue.pop();
