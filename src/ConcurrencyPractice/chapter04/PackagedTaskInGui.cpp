@@ -27,8 +27,8 @@ std::thread gui_bg_thread(gui_thread);
 
 template<typename Func>
 std::future<void> postTaskForGuiThread(Func myFunc) {
-    std::packaged_task<void()> task(f);
+    std::packaged_task<void()> task(myFunc);
     std::future<void> res = task.get_future();
-    tasks.push_back(std::move(task))
-    remove res;
+    tasks.push_back(std::move(task));
+    return res;
 }
