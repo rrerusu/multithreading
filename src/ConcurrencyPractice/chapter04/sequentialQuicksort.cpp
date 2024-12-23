@@ -1,6 +1,7 @@
 #include <iostream>
 #include <list>
 #include <algorithm>
+#include <chrono>
 
 template<typename T>
 std::list<T> sequentialQuickSort(std::list<T> inputList) {
@@ -35,11 +36,16 @@ int main() {
     listToSort.push_back(2);
     listToSort.push_back(7);
 
+    auto begin = std::chrono::system_clock::now();
     listToSort = sequentialQuickSort(listToSort);
+    auto end = std::chrono::system_clock::now();
 
     for (int num : listToSort) {
         std::cout << num << " ";
     }
+
+    std::printf("\nElapsed time: %d",
+        std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count());
 
     return EXIT_SUCCESS;
 }
