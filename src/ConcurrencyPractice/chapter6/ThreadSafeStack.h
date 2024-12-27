@@ -15,22 +15,22 @@ struct emptyStack: std::exception {
 };
 
 template<typename T>
-class threadSafeStack {
+class ThreadSafeStack {
     private:
         std::stack<T> stackData;
         mutable std::mutex stackTex;
     public:
-        threadSafeStack() = default;
-        threadSafeStack(const threadSafeStack & other) {
+        ThreadSafeStack() = default;
+        ThreadSafeStack(const ThreadSafeStack & other) {
             std::lock_guard<std::mutex> stackLock(other.stackTex);
             stackData = other.stackData;
         }
-        threadSafeStack(ThreadSafeStack && other) noexcept {
+        ThreadSafeStack(ThreadSafeStack && other) noexcept {
             std::lock_guard<std::mutex> stackLock(other.stackTex);
             stackData = std::move(other.stackData);
         }
-        threadSafeStack & operator=(const threadSafeStack &) = delete;
-        threadSafeStack & operator=(threadSafeStack && other) noexcept {
+        ThreadSafeStack & operator=(const ThreadSafeStack &) = delete;
+        ThreadSafeStack & operator=(ThreadSafeStack && other) noexcept {
             if(this != &other) {
                 std::lock(stackTex, other.stackTex);
                 std::lock_guard<std::mutex> otherStackLock(other.stackTex, std::adopt_lock);
@@ -39,7 +39,7 @@ class threadSafeStack {
             }
             return *this;
         }
-        ~threadSafeStack() noexcept = default;
+        ~ThreadSafeStack() noexcept = default;
 
         void push(T newVal) {
             std::lock_guard<std::mutex> stackLock(stackTex);
