@@ -1,15 +1,20 @@
 #include <atomic>
 #include <thread>
 #include <vector>
+#include <mutex>
 
 std::vector<int> queueData;
 std::atomic<int> count;
+std::mutex queueTex;
 
 void populateQueue() {
     unsigned const numberOfItems = 20;
-    queueData.clear();
-    for(unsigned i = 0; i < numberOfItems; ++i)
-        queueData.push_back(i);
+    {
+        std::lock_guard<std::mutex> queueLock(queueTex);
+        queueData.clear();
+        for(unsigned i = 0; i < numberOfItems; ++i)
+            queueData.push_back(i);
+    }
     count.store(numberOfItems, std::memory_order_release);
 }
 
@@ -20,7 +25,10 @@ void consumeQueueItems() {
             waitForMoreItems();
             continue;
         }
-        process(queueData[itemIndex - 1]);
+        {
+            std::lock_guard<std::mutex> queueLock(queueTex);
+            process(queueData[itemIndex - 1]);
+        }
     }
 }
 
