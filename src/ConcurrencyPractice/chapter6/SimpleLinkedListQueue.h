@@ -1,5 +1,8 @@
 #include <memory>
 #include <mutex>
+#include <condition_variable>
+
+#pragma once
 
 template<typename T>
 class Queue {
@@ -16,57 +19,31 @@ class Queue {
         std::unique_ptr<Node> head;
         std::mutex tailTex;
         Node * tail;
+        std::condition_variable queueCondVar;
 
-        Node * getTail() {
-            std::lock_guard<std::mutex> tailLock(tailTex);
-            return tail;
-        }
-        std::unique_ptr<Node> popHead() {
-            std::lock_guard<std::mutex> head_lock(headTex);
+        Node * getTail();
+        std::unique_ptr<Node> popHead();
+        std::unique_lock<std::mutex> waitForData();
+        std::unique_ptr<Node> waitPopHead();
+        std::unique_ptr<Node> waitPopHead(T &);
+        std::unique_ptr<Node> tryPopHead();
+        std::unique_ptr<Node> tryPopHead(T &);
 
-            if(head.get() == getTail())
-                return nullptr;
-            
-            std::unique_ptr<Node> oldHead = std::move(head);
-            head = std::move(oldHead->next);
-            return oldHead;
-        }
 
     public:
         Queue() : head(new Node), tail(head.get()) {}
-        Queue(const Queue & other) = noexcept delete;
-        Queue(Queue && other) {
-            std::lock(other.headTex, other.tailTex);
-            std::lock_guard<std::mutex> otherHeadLock(other.headTex, std::adopt_lock);
-            std::lock_guard<std::mutex> otherTailLock(other.tailTex, std::adopt_lock);
-            head = std::move(other.head);
-            tail = std::move(other.tail);
-        }
-        Queue & operator=(const Queue & other) = delete;
-        Queue & operator=(Queue && other) noexcept {
-            std::lock(other.headTex, other.tailTex);
-            std::lock_guard<std::mutex> otherHeadLock(other.headTex, std::adopt_lock);
-            std::lock_guard<std::mutex> otherTailLock(other.tailTex, std::adopt_lock);
-            std::lock(headTex, tailTex);
-            std::lock_guard<std::mutex> headLock(headTex, std::adopt_lock);
-            std::lock_guard<std::mutex> tailLock(tailTex, std::adopt_lock);
-            head = std::move(other.head);
-            tail = std::move(other.tail);
-        }
+        Queue(const Queue &) = delete;
+        Queue(Queue &&) noexcept;
+        Queue & operator=(const Queue &) = delete;
+        Queue & operator=(Queue &&) noexcept;
         ~Queue() noexcept = default;
 
-        std::shared_ptr<T> try_pop() {
-            std::unique_ptr<Node> oldHead = popHead();
-            return oldHead ? oldHead->data : std::shared_ptr<T>();
-        }
-        void push(T newVal) {
-            std::shared_ptr<T> newData(std::make_shared<T>(std::move(newVal)));
-            std::unique_ptr<Node> p(new Node());
-            Node * const newTail = p.get();
-
-            std::lock_guard<std::mutex> tailLock(tailTex);
-            tail->data = newData;
-            tail->next = std::move(p);
-            tail = newTail;
-        }
+        std::shared_ptr<T> wait_and_pop();
+        void wait_and_pop(T &);
+        std::shared_ptr<T> try_pop();
+        bool try_pop(T &);
+        void push(T);
+        bool empty() const;
 };
+
+#include "SimpleLinkedListQueue.tpp"
