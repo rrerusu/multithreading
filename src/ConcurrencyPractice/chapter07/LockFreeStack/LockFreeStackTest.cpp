@@ -7,5 +7,7 @@ int main() {
 
     myStack.push(10);
 
+    std::cout << *(myStack.pop()) << std::endl;
+
     return EXIT_SUCCESS;
 }
