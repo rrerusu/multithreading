@@ -1,5 +1,6 @@
-#include <atomic>
 #include <memory>
+
+#include "HazardPointers.h"
 
 template<typename T>
 class LockFreeStack {
@@ -43,7 +44,6 @@ class LockFreeStack {
             chainPendingNodes(nodes, lastNode);
         }
 
-        // TODO: Check this
         void chainPendingNodes(Node * firstNode, Node * lastNode) {
             lastNode->next = toBeDeleted;
             while(!toBeDeleted.compare_exchange_weak(lastNode->next, firstNode));
@@ -60,15 +60,77 @@ class LockFreeStack {
             newNode->next = head.load();
             while(!head.compare_exchange_weak(newNode->next, newNode));
         }
+
         std::shared_ptr<T> pop() {
-            ++threadsInPop;
+            std::atomic<void * > & hazardPointer = getHazardPointerForCurrentThread();
             Node * oldHead = head.load();
-            while(oldHead && !head.compare_exchange_weak(oldHead, oldHead->next));
+            do {
+                Node * temp;
+                do {
+                    temp = oldHead;
+                    hazardPointer.store(oldHead);
+                    oldHead = head.load();
+                } while(oldHead != temp);
+            } while(oldHead && !head.compare_exchange_strong(oldHead, oldHead->next));
+
+            hazardPointer.store(nullptr);
             std::shared_ptr<T> res;
-            if(oldHead)
+
+            if(oldHead) {
                 res.swap(oldHead->data);
-            
-            tryReclaim(oldHead);
+                if(outstandingHazardPointersFor(oldHead))
+                    reclaimLater(oldHead);
+                else
+                    delete oldHead;
+                deleteNodesWithNoHazards();
+            }
             return res;
+        }
+
+
+        // reclaim functions
+        std::atomic<dataToReclaim * > nodesToReclaim;
+
+        struct dataToReclaim {
+            void * data;
+            std::function<void(void * )> deleter;
+            dataToReclaim * next;
+
+            // template<typename T>
+            dataToReclaim(T * p) :
+                data(p),
+                deleter( & doDelete<T>),
+                next(0)
+            {}
+
+            ~dataToReclaim() {
+                deleter(data);
+            }
+        };
+
+        // template<typename T>
+        void doDelete(void * p) {
+            delete static_cast<T * >(p);
+        }
+
+        void addToReclaimList(aToReclaim * node) {
+            node->next = nodesToReclaim.load();
+            while(!nodesToReclaim.compare_exchange_weak(node->next, node));
+        }
+
+        void reclaimLater(T * data) {
+            addToReclaimList(new dataToReclaim(data));
+        }
+
+        void deleteNodesWithNoHazards() {
+            dataToReclaim * current = nodesToReclaim.exchange(nullptr);
+            while(current) {
+                dataToReclaim * const next = current->next;
+                if(!outstandingHazardPointersFor(current->data))
+                    delete current;
+                else
+                    addToReclaimList(current);
+                current = next;
+            }
         }
 };
